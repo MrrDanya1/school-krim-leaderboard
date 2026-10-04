@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Битва школ Крыма</title>
+<title>Битва школ Евпатории</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial;background:#07140f;color:#fff}
 main{max-width:650px;margin:auto;padding:24px 16px}h1{text-align:center;color:#55e68a}
@@ -17,7 +17,7 @@ button{background:#39d978;font-weight:bold;color:#06130d;cursor:pointer}.score{t
 </head>
 <body>
 <main>
-<h1>Битва школ Крыма</h1>
+<h1>Битва школ Евпатории</h1>
 <div class="sub">Кликай за свою школу и поднимай её в рейтинге!</div>
 <div class="card">
 <select id="school"></select>
@@ -32,26 +32,67 @@ button{background:#39d978;font-weight:bold;color:#06130d;cursor:pointer}.score{t
 const SUPABASE_URL="https://wjqdwflcqnaghssifdsw.supabase.co";
 const SUPABASE_KEY="sb_publishable_6Dlm9NRIXDiqAyee3I256g_NOswORGG";
 const headers={"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"};
+
+const SCHOOLS=[
+"МБОУ «Средняя школа №1 имени Героя Советского Союза Максима Губанова города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №2 имени Героев Евпаторийского десанта города Евпатории Республики Крым»",
+"МБОУ «Мирновская средняя школа имени Героя Советского Союза Николая Алексеевича Мусатова города Евпатории Республики Крым»",
+"МБОУ «Гимназия имени Ильи Сельвинского города Евпатории Республики Крым»",
+"МБОУ физико-математического профиля «Учебно-воспитательный комплекс «Интеграл» города Евпатории Крым»",
+"МБОУ «Средняя школа №7 города Евпатории Республики Крым имени кавалера трех орденов Славы, Почетного гражданина города Евпатории Ивана Егоровича Мещерякова»",
+"МБОУ «Гимназия №8 города Евпатории Республики Крым»",
+"МБОУ «Новоозерновская средняя школа города Евпатории Республики Крым»",
+"МБОУ «Заозерненская средняя школа города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №11 имени Героя Советского Союза Евграфа Михайловича Рыжова города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №12 города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №13 города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №14 города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №15 имени Героя Советского Союза Николая Токарева города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №16 имени Героя Советского Союза Степана Иванова города Евпатории Республики Крым»",
+"МБОУ «Средняя общеобразовательная школа – детский сад №17 города Евпатории Республики Крым»",
+"МБОУ «Средняя школа №18 с крымскотатарским языком обучения города Евпатории Республики Крым»"
+];
+
 let schools=[],scores={},ids={},loading=true;
 const sel=document.getElementById("school"),btn=document.getElementById("click"),statusEl=document.getElementById("status");
 
 async function api(path,options={}){
   const r=await fetch(SUPABASE_URL+path,{...options,headers:{...headers,...(options.headers||{})}});
-  if(!r.ok) throw new Error(await r.text());
+  if(!r.ok)throw new Error(await r.text());
   return r.status===204?null:r.json();
 }
+
+function shortName(s){
+  const m=s.match(/(?:Средняя школа|Гимназия) №?\s*(\d+)/i);
+  if(m)return "Школа №"+m[1];
+  if(s.includes("Интеграл"))return "УВК «Интеграл»";
+  if(s.includes("Мирновская"))return "Мирновская школа";
+  if(s.includes("Новоозерновская"))return "Новоозерновская школа";
+  if(s.includes("Заозерненская"))return "Заозерненская школа";
+  return s;
+}
+
 async function load(){
   try{
     const data=await api("/rest/v1/schools?select=id,name,clicks&order=clicks.desc,name.asc");
-    schools=data.map(x=>x.name); scores={}; ids={};
-    data.forEach(x=>{scores[x.name]=Number(x.clicks);ids[x.name]=x.id});
+    const allowed=new Set(SCHOOLS);
+    const db=data.filter(x=>allowed.has(x.name));
+    schools=db.map(x=>x.name);
+    scores={};ids={};
+    db.forEach(x=>{scores[x.name]=Number(x.clicks);ids[x.name]=x.id});
     sel.innerHTML="";
-    schools.forEach(s=>sel.add(new Option(s,s)));
+    SCHOOLS.forEach(s=>{
+      if(ids[s]!==undefined)sel.add(new Option(shortName(s),s));
+    });
     btn.disabled=false;btn.textContent="КЛИКНУТЬ ЗА ШКОЛУ";loading=false;
-    statusEl.textContent="";
+    statusEl.textContent=schools.length===17?"":"В базе пока не все 17 школ.";
     render();
-  }catch(e){statusEl.textContent="Не удалось подключиться к базе данных.";console.error(e);}
+  }catch(e){
+    statusEl.textContent="Не удалось подключиться к базе данных.";
+    console.error(e);
+  }
 }
+
 function render(){
   if(!schools.length)return;
   const current=sel.value;
@@ -59,13 +100,14 @@ function render(){
   const a=[...schools].sort((x,y)=>scores[y]-scores[x]||x.localeCompare(y,"ru"));
   const m=Math.max(1,...a.map(s=>scores[s]));
   document.getElementById("ranking").innerHTML=a.map((s,i)=>
-    '<div class="row"><div class="name">'+(i+1)+". "+s+
+    '<div class="row"><div class="name">'+(i+1)+". "+shortName(s)+
     '</div><div class="bar"><div class="fill" style="width:'+(scores[s]/m*100)+'%"></div></div><div class="num">'+scores[s]+'</div></div>'
   ).join("");
 }
+
 sel.onchange=render;
 btn.onclick=async()=>{
-  if(loading)return;
+  if(loading||ids[sel.value]===undefined)return;
   btn.disabled=true;
   try{
     const result=await api("/rest/v1/rpc/increment_school",{method:"POST",body:JSON.stringify({p_id:ids[sel.value]})});
@@ -77,12 +119,17 @@ btn.onclick=async()=>{
     console.error(e);
   }finally{btn.disabled=false;}
 };
+
 load();
+
 setInterval(async()=>{
   if(document.hidden||loading)return;
   try{
     const data=await api("/rest/v1/schools?select=id,name,clicks&order=clicks.desc,name.asc");
-    data.forEach(x=>{scores[x.name]=Number(x.clicks);ids[x.name]=x.id});
+    const allowed=new Set(SCHOOLS);
+    data.filter(x=>allowed.has(x.name)).forEach(x=>{
+      scores[x.name]=Number(x.clicks);ids[x.name]=x.id;
+    });
     render();
   }catch(e){}
 },5000);
