@@ -1,1 +1,91 @@
-<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Битва школ Крыма</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#07140f;color:#fff}main{max-width:650px;margin:auto;padding:24px 16px}h1{text-align:center;color:#55e68a}.sub{text-align:center;color:#9bb3a5;margin-bottom:24px}.card{background:#10231b;border:1px solid #214b38;border-radius:18px;padding:18px;margin-bottom:16px}select,button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px}select{background:#173428;color:#fff;margin-bottom:14px}button{background:#39d978;font-weight:bold}.score{text-align:center;font-size:42px;color:#55e68a;font-weight:bold}.small{text-align:center;color:#9bb3a5}.row{display:flex;gap:8px;align-items:center;margin:12px 0}.name{width:145px;font-size:13px}.bar{flex:1;height:13px;background:#18362a;border-radius:20px;overflow:hidden}.fill{height:100%;background:#39d978}.num{width:45px;text-align:right}</style></head><body><main><h1>Битва школ Крыма</h1><div class="sub">Кликай за свою школу и поднимай её в рейтинге!</div><div class="card"><select id="school"></select><div class="score" id="score">0</div><div class="small">твоих кликов</div><br><button id="click">КЛИКНУТЬ ЗА ШКОЛУ</button></div><div class="card"><h2>🏆 Рейтинг школ</h2><div id="ranking"></div></div></main><script>const schools=["Школа №1 — Евпатория","Школа №2 — Евпатория","Школа №13 — Симферополь","Школа №18 — Симферополь","Школа №3 — Ялта","Школа №4 — Севастополь","Школа №5 — Керчь","Школа №6 — Феодосия","Школа №7 — Бахчисарай","Школа №8 — Саки"];let scores=JSON.parse(localStorage.getItem("scores")||"{}");schools.forEach(s=>scores[s]??=0);const sel=document.getElementById("school");schools.forEach(s=>sel.add(new Option(s,s)));function render(){document.getElementById("score").textContent=scores[sel.value];let a=[...schools].sort((x,y)=>scores[y]-scores[x]),m=Math.max(1,...a.map(s=>scores[s]));document.getElementById("ranking").innerHTML=a.map((s,i)=>'<div class="row"><div class="name">'+(i+1)+". "+s+'</div><div class="bar"><div class="fill" style="width:'+scores[s]/m*100+'%"></div></div><div class="num">'+scores[s]+'</div></div>').join("")}sel.onchange=render;document.getElementById("click").onclick=()=>{scores[sel.value]++;localStorage.setItem("scores",JSON.stringify(scores));render()};render();</script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Битва школ Крыма</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#07140f;color:#fff}
+main{max-width:650px;margin:auto;padding:24px 16px}h1{text-align:center;color:#55e68a}
+.sub{text-align:center;color:#9bb3a5;margin-bottom:24px}.card{background:#10231b;border:1px solid #214b38;border-radius:18px;padding:18px;margin-bottom:16px}
+select,button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px}select{background:#173428;color:#fff;margin-bottom:14px}
+button{background:#39d978;font-weight:bold;color:#06130d;cursor:pointer}.score{text-align:center;font-size:42px;color:#55e68a;font-weight:bold}
+.small{text-align:center;color:#9bb3a5}.row{display:flex;gap:8px;align-items:center;margin:12px 0}.name{width:145px;font-size:13px}
+.bar{flex:1;height:13px;background:#18362a;border-radius:20px;overflow:hidden}.fill{height:100%;background:#39d978}
+.num{width:45px;text-align:right}.status{text-align:center;color:#9bb3a5;font-size:13px;margin-top:10px;min-height:18px}
+</style>
+</head>
+<body>
+<main>
+<h1>Битва школ Крыма</h1>
+<div class="sub">Кликай за свою школу и поднимай её в рейтинге!</div>
+<div class="card">
+<select id="school"></select>
+<div class="score" id="score">0</div>
+<div class="small">кликов этой школы</div><br>
+<button id="click" disabled>ЗАГРУЗКА...</button>
+<div class="status" id="status"></div>
+</div>
+<div class="card"><h2>🏆 Рейтинг школ</h2><div id="ranking"></div></div>
+</main>
+<script>
+const SUPABASE_URL="https://wjqdwflcqnaghssifdsw.supabase.co";
+const SUPABASE_KEY="sb_publishable_6Dlm9NRIXDiqAyee3I256g_NOswORGG";
+const headers={"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"};
+let schools=[],scores={},ids={},loading=true;
+const sel=document.getElementById("school"),btn=document.getElementById("click"),statusEl=document.getElementById("status");
+
+async function api(path,options={}){
+  const r=await fetch(SUPABASE_URL+path,{...options,headers:{...headers,...(options.headers||{})}});
+  if(!r.ok) throw new Error(await r.text());
+  return r.status===204?null:r.json();
+}
+async function load(){
+  try{
+    const data=await api("/rest/v1/schools?select=id,name,clicks&order=clicks.desc,name.asc");
+    schools=data.map(x=>x.name); scores={}; ids={};
+    data.forEach(x=>{scores[x.name]=Number(x.clicks);ids[x.name]=x.id});
+    sel.innerHTML="";
+    schools.forEach(s=>sel.add(new Option(s,s)));
+    btn.disabled=false;btn.textContent="КЛИКНУТЬ ЗА ШКОЛУ";loading=false;
+    statusEl.textContent="";
+    render();
+  }catch(e){statusEl.textContent="Не удалось подключиться к базе данных.";console.error(e);}
+}
+function render(){
+  if(!schools.length)return;
+  const current=sel.value;
+  document.getElementById("score").textContent=scores[current]??0;
+  const a=[...schools].sort((x,y)=>scores[y]-scores[x]||x.localeCompare(y,"ru"));
+  const m=Math.max(1,...a.map(s=>scores[s]));
+  document.getElementById("ranking").innerHTML=a.map((s,i)=>
+    '<div class="row"><div class="name">'+(i+1)+". "+s+
+    '</div><div class="bar"><div class="fill" style="width:'+(scores[s]/m*100)+'%"></div></div><div class="num">'+scores[s]+'</div></div>'
+  ).join("");
+}
+sel.onchange=render;
+btn.onclick=async()=>{
+  if(loading)return;
+  btn.disabled=true;
+  try{
+    const result=await api("/rest/v1/rpc/increment_school",{method:"POST",body:JSON.stringify({p_id:ids[sel.value]})});
+    scores[sel.value]=Number(result[0]?.increment_school??result?.increment_school??result??scores[sel.value]+1);
+    render();
+    statusEl.textContent="Клик засчитан";
+  }catch(e){
+    statusEl.textContent="Ошибка. Попробуй ещё раз.";
+    console.error(e);
+  }finally{btn.disabled=false;}
+};
+load();
+setInterval(async()=>{
+  if(document.hidden||loading)return;
+  try{
+    const data=await api("/rest/v1/schools?select=id,name,clicks&order=clicks.desc,name.asc");
+    data.forEach(x=>{scores[x.name]=Number(x.clicks);ids[x.name]=x.id});
+    render();
+  }catch(e){}
+},5000);
+</script>
+</body>
+</html>
