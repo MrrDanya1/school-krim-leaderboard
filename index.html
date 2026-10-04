@@ -29,7 +29,14 @@ button:disabled{opacity:.6}
 </style>
 </head>
 <body>
-<main>
+<div id="authGate" style="display:none;position:fixed;inset:0;background:#07140f;z-index:9999;padding:24px;align-items:center;justify-content:center;text-align:center">
+  <div class="card" style="width:100%;max-width:420px">
+    <h1>🔐 Регистрация</h1>
+    <p class="sub">Чтобы пользоваться «Битвой школ», сначала открой сайт через Telegram-бота.</p>
+    <div style="color:#9bb3a5;font-size:14px">Нажми «Старт» в боте и затем открой сайт.</div>
+  </div>
+</div>
+<main id="app">
 <h1>Битва школ Евпатории</h1>
 <div class="sub">Кликай за свою школу и поднимай её в рейтинге!</div>
 
@@ -120,12 +127,16 @@ btn.onclick=()=>{
 };
 
 function initTelegramProfile(){
-  const user = tg?.initDataUnsafe?.user;
-  const saved = JSON.parse(localStorage.getItem("evpatoria_tg_profile") || "null");
+  const user = telegramUser;
 
-  if (!user && !saved) return;
+  // Регистрация обязательна: без Telegram Mini App сайт недоступен.
+  if (!user) {
+    document.getElementById("authGate").style.display = "flex";
+    document.getElementById("app").style.display = "none";
+    return false;
+  }
 
-  const profile = user || saved;
+  const profile = user;
   const username = profile.username ? "@" + profile.username : (profile.first_name || "Пользователь");
   document.getElementById("profileName").textContent = username;
   document.getElementById("profileStatus").textContent = user
@@ -134,18 +145,16 @@ function initTelegramProfile(){
   document.getElementById("avatar").textContent =
     (profile.username || profile.first_name || "?").replace("@","").charAt(0).toUpperCase();
 
-  if (user) {
-    localStorage.setItem("evpatoria_tg_profile", JSON.stringify({
-      id:user.id,
-      username:user.username || "",
-      first_name:user.first_name || "",
-      last_name:user.last_name || ""
-    }));
-  }
+  localStorage.setItem("evpatoria_tg_profile", JSON.stringify({
+    id:user.id,
+    username:user.username || "",
+    first_name:user.first_name || "",
+    last_name:user.last_name || ""
+  }));
+  return true;
 }
 
-initTelegramProfile();
-render();
+if (initTelegramProfile()) render();
 </script>
 </body>
 </html>
