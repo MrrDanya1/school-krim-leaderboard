@@ -126,35 +126,31 @@ btn.onclick=()=>{
  render();
 };
 
-function initTelegramProfile(){
-  const user = telegramUser;
-
-  // Регистрация обязательна: без Telegram Mini App сайт недоступен.
-  if (!user) {
+function initRegistration(){
+  const saved = JSON.parse(localStorage.getItem("evpatoria_tg_profile") || "null");
+  if (!registered && !saved) {
     document.getElementById("authGate").style.display = "flex";
     document.getElementById("app").style.display = "none";
     return false;
   }
 
-  const profile = user;
-  const username = profile.username ? "@" + profile.username : (profile.first_name || "Пользователь");
-  document.getElementById("profileName").textContent = username;
-  document.getElementById("profileStatus").textContent = user
-    ? "Вы зарегистрированы через Telegram"
-    : "Профиль сохранён на этом устройстве";
+  const username = registeredUsername || saved?.username || "";
+  document.getElementById("profileName").textContent =
+    username ? "@" + username.replace(/^@/, "") : "Зарегистрированный пользователь";
+  document.getElementById("profileStatus").textContent = "Регистрация через Telegram подтверждена";
   document.getElementById("avatar").textContent =
-    (profile.username || profile.first_name || "?").replace("@","").charAt(0).toUpperCase();
+    (username || "П").replace("@","").charAt(0).toUpperCase();
 
-  localStorage.setItem("evpatoria_tg_profile", JSON.stringify({
-    id:user.id,
-    username:user.username || "",
-    first_name:user.first_name || "",
-    last_name:user.last_name || ""
-  }));
+  if (registered) {
+    localStorage.setItem("evpatoria_tg_profile", JSON.stringify({
+      username: username.replace(/^@/, "")
+    }));
+    history.replaceState({}, "", location.pathname);
+  }
   return true;
 }
 
-if (initTelegramProfile()) render();
+if (initRegistration()) render();
 </script>
 </body>
 </html>
